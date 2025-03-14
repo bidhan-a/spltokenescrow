@@ -1,4 +1,4 @@
-# legacy-spltokenescrow
+# spltokenescrow
 
 ## Getting Started
 

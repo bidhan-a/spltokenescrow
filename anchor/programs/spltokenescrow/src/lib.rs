@@ -1,70 +1,36 @@
-#![allow(clippy::result_large_err)]
-
 use anchor_lang::prelude::*;
 
-declare_id!("coUnmi3oBUtwtd9fjeAvSsJssXh5A5xyPbhpewyzRVF");
+declare_id!("u4AZsQHiYE5wZcHkaoW6WKkypg7uTXVQuok3Ka9ghci");
+
+pub mod instructions;
+pub use instructions::*;
+
+pub mod state;
+pub use state::*;
 
 #[program]
 pub mod spltokenescrow {
     use super::*;
 
-  pub fn close(_ctx: Context<CloseSpltokenescrow>) -> Result<()> {
-    Ok(())
-  }
+    pub fn make(
+        ctx: Context<Make>,
+        seed: u64,
+        receive_amount: u64,
+        deposit_amount: u64,
+    ) -> Result<()> {
+        ctx.accounts
+            .init_escrow_state(seed, receive_amount, ctx.bumps)?;
+        ctx.accounts.deposit(deposit_amount)?;
+        Ok(())
+    }
 
-  pub fn decrement(ctx: Context<Update>) -> Result<()> {
-    ctx.accounts.spltokenescrow.count = ctx.accounts.spltokenescrow.count.checked_sub(1).unwrap();
-    Ok(())
-  }
+    pub fn take(ctx: Context<Take>) -> Result<()> {
+        ctx.accounts.withdraw()?;
+        Ok(())
+    }
 
-  pub fn increment(ctx: Context<Update>) -> Result<()> {
-    ctx.accounts.spltokenescrow.count = ctx.accounts.spltokenescrow.count.checked_add(1).unwrap();
-    Ok(())
-  }
-
-  pub fn initialize(_ctx: Context<InitializeSpltokenescrow>) -> Result<()> {
-    Ok(())
-  }
-
-  pub fn set(ctx: Context<Update>, value: u8) -> Result<()> {
-    ctx.accounts.spltokenescrow.count = value.clone();
-    Ok(())
-  }
-}
-
-#[derive(Accounts)]
-pub struct InitializeSpltokenescrow<'info> {
-  #[account(mut)]
-  pub payer: Signer<'info>,
-
-  #[account(
-  init,
-  space = 8 + Spltokenescrow::INIT_SPACE,
-  payer = payer
-  )]
-  pub spltokenescrow: Account<'info, Spltokenescrow>,
-  pub system_program: Program<'info, System>,
-}
-#[derive(Accounts)]
-pub struct CloseSpltokenescrow<'info> {
-  #[account(mut)]
-  pub payer: Signer<'info>,
-
-  #[account(
-  mut,
-  close = payer, // close account and return lamports to payer
-  )]
-  pub spltokenescrow: Account<'info, Spltokenescrow>,
-}
-
-#[derive(Accounts)]
-pub struct Update<'info> {
-  #[account(mut)]
-  pub spltokenescrow: Account<'info, Spltokenescrow>,
-}
-
-#[account]
-#[derive(InitSpace)]
-pub struct Spltokenescrow {
-  count: u8,
+    pub fn refund(ctx: Context<Refund>) -> Result<()> {
+        ctx.accounts.refund()?;
+        Ok(())
+    }
 }
