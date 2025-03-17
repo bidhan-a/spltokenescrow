@@ -109,12 +109,12 @@ export function useSpltokenescrowProgramAccount({
   const provider = useAnchorProvider();
 
   const accountQuery = useQuery({
-    queryKey: ["spltokenescrow", "fetch", { cluster, account }],
+    queryKey: ["spltokenescrow", "account", { cluster, account }],
     queryFn: () => program.account.escrowState.fetch(account),
   });
 
   const vaultQuery = useQuery({
-    queryKey: ["spltokenescrow-vault", "fetch", { cluster, account }],
+    queryKey: ["spltokenescrow", "vault", { cluster, account }],
     queryFn: async () => {
       const mintA = new PublicKey(
         "8PwTZFDVrZP5CGhYpQf1sJC4dP6cNipQfvkXFx1jb9fs"
@@ -125,8 +125,107 @@ export function useSpltokenescrowProgramAccount({
     },
   });
 
+  const takeMutation = useMutation({
+    mutationKey: ["spltokenescrow", "take", { cluster }],
+    mutationFn: async () => {
+      if (!accountQuery.data) {
+        throw new Error("Account not found");
+      }
+      const seed = accountQuery.data.seed;
+      const maker = accountQuery.data.maker;
+      const mintA = accountQuery.data.mintA;
+      const mintB = accountQuery.data.mintB;
+      const takerMintAAta = getAssociatedTokenAddressSync(
+        mintA,
+        provider.publicKey
+      );
+      const takerMintBAta = getAssociatedTokenAddressSync(
+        mintB,
+        provider.publicKey
+      );
+      const makerMintBAta = getAssociatedTokenAddressSync(mintB, maker);
+
+      const [escrow] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("escrow"),
+          maker.toBuffer(),
+          seed.toArrayLike(Buffer, "le", 8),
+        ],
+        program.programId
+      );
+      const vault = getAssociatedTokenAddressSync(mintA, escrow, true);
+      return program.methods
+        .take()
+        .accountsStrict({
+          taker: provider.publicKey,
+          maker,
+          mintA,
+          mintB,
+          takerMintAAta,
+          takerMintBAta,
+          makerMintBAta,
+          vault,
+          escrow,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+    },
+    onSuccess: (signature) => {
+      transactionToast(signature);
+      return accounts.refetch();
+    },
+    onError: () => toast.error("Failed to take offer"),
+  });
+
+  const refundMutation = useMutation({
+    mutationKey: ["spltokenescrow", "refund", { cluster }],
+    mutationFn: async () => {
+      if (!accountQuery.data) {
+        throw new Error("Account not found");
+      }
+      const seed = accountQuery.data.seed;
+      const maker = accountQuery.data.maker;
+      const mintA = accountQuery.data.mintA;
+      const mintB = accountQuery.data.mintB;
+      const makerMintAAta = getAssociatedTokenAddressSync(mintA, maker);
+
+      const [escrow] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("escrow"),
+          maker.toBuffer(),
+          seed.toArrayLike(Buffer, "le", 8),
+        ],
+        program.programId
+      );
+      const vault = getAssociatedTokenAddressSync(mintA, escrow, true);
+      return program.methods
+        .refund()
+        .accountsStrict({
+          maker,
+          mintA,
+          mintB,
+          makerMintAAta,
+          vault,
+          escrow,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+    },
+    onSuccess: (signature) => {
+      transactionToast(signature);
+      return accounts.refetch();
+    },
+    onError: () => toast.error("Failed to refund"),
+  });
+
   return {
     accountQuery,
     vaultQuery,
+    takeMutation,
+    refundMutation,
   };
 }

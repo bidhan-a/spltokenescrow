@@ -8,6 +8,7 @@ import {
   useSpltokenescrowProgram,
   useSpltokenescrowProgramAccount,
 } from "./spltokenescrow-data-access";
+import { useAnchorProvider } from "../solana/solana-provider";
 
 export function SpltokenescrowCreate() {
   const { initialize } = useSpltokenescrowProgram();
@@ -63,11 +64,14 @@ export function SpltokenescrowList() {
 }
 
 function SpltokenescrowCard({ account }: { account: PublicKey }) {
-  const { accountQuery, vaultQuery } = useSpltokenescrowProgramAccount({
-    account,
-  });
+  const { accountQuery, vaultQuery, takeMutation, refundMutation } =
+    useSpltokenescrowProgramAccount({
+      account,
+    });
 
-  return accountQuery.isLoading ? (
+  const provider = useAnchorProvider();
+
+  return vaultQuery.isLoading ? (
     <span className="loading loading-spinner loading-lg"></span>
   ) : (
     <div className="card card-bordered border-base-300 border-4 text-neutral-content">
@@ -89,6 +93,20 @@ function SpltokenescrowCard({ account }: { account: PublicKey }) {
             </p>
           </div>
         </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => takeMutation.mutateAsync()}
+        >
+          Take
+        </button>
+        {accountQuery?.data?.maker?.equals(provider.publicKey) ? (
+          <button
+            className="btn btn-primary"
+            onClick={() => refundMutation.mutateAsync()}
+          >
+            Refund
+          </button>
+        ) : null}
       </div>
     </div>
   );
